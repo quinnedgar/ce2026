@@ -1,0 +1,29 @@
+=== Test 1: SHAKE256 Test Vector ===
+
+✓ SHAKE256 test vector PASSED
+
+
+=== Benchmarks ===
+
+cycles for SHAKE256: 
+303066
+
+cycles for KeccakF1600: 
+19796
+
+Benchmarks completed!
+
+
+=== Stack Usage Measurements ===
+
+Measuring SHAKE256 stack usage...
+
+stack usage for SHAKE256: 912 bytes
+Measuring KeccakF1600 stack usage...
+
+stack usage for KeccakF1600: 296 bytes
+Stack measurements completed!
+
+
+*** ALL GOOD ***
+

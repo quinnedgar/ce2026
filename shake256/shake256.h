@@ -14,4 +14,8 @@ void shake256(uint8_t *output, size_t outlen, const uint8_t *input, size_t inlen
 
 void KeccakF1600_StatePermute(uint64_t *state);
 
+void KeccakF1600_StatePermute_OLD(uint64_t *state);
+
+extern void Keccak_ASM(uint64_t *state);
+
 #endif
