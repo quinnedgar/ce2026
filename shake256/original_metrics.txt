@@ -27,3 +27,63 @@ Stack measurements completed!
 
 *** ALL GOOD ***
 
+VERSION 1
+=== Test 1: SHAKE256 Test Vector ===
+
+✓ SHAKE256 test vector PASSED
+
+
+=== Benchmarks ===
+
+cycles for SHAKE256:
+382810
+
+cycles for KeccakF1600: 
+25153
+
+Benchmarks completed!
+
+
+=== Stack Usage Measurements ===
+
+Measuring SHAKE256 stack usage...
+
+stack usage for SHAKE256: 940 bytes
+Measuring KeccakF1600 stack usage...
+
+stack usage for KeccakF1600: 324 bytes
+Stack measurements completed!
+
+
+*** ALL GOOD ***
+
+VERSION 1.1
+ThetaApply Worked into RHOPI macro
+=== Test 1: SHAKE256 Test Vector ===
+
+✓ SHAKE256 test vector PASSED
+
+
+=== Benchmarks ===
+
+cycles for SHAKE256:
+316976
+
+cycles for KeccakF1600: 
+20748
+
+Benchmarks completed!
+
+
+=== Stack Usage Measurements ===
+
+Measuring SHAKE256 stack usage...
+
+stack usage for SHAKE256: 940 bytes
+Measuring KeccakF1600 stack usage...
+
+stack usage for KeccakF1600: 324 bytes
+Stack measurements completed!
+
+
+*** ALL GOOD ***

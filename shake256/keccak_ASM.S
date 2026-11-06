@@ -36,6 +36,8 @@
     @ Conditional rotation (rho) into new lane (pi)
     .macro RHOPI src, dst, n            @ Uses r4-r7, assumes r0 is state ptr
     ldrd r4, r5, [r0, #8 * \src]
+    eor  r4, r4, r8                     @ fused theta
+    eor  r5, r5, r9
     .if \n == 0
     strd r4, r5, [r1, #8 * \dst]        @ 0 rotation
     .elseif \n < 32                     @ 0 < n < 32 rotation
@@ -147,39 +149,6 @@
         eor r9, r7, r9
         strd r8, r9, [sp, #72]
 
-        ThetaApply:
-            add  r3, r0, r12, lsl #3         @ r3 = &state[x]  (top of column x)
-            add  r2, sp, r12, lsl #3         @ r2 = sp + 8x
-            ldrd r6, r7, [r2, #40]           @ D[x]
-
-            ldrd r4, r5, [r3, #0]            @ row 0 lane
-            eor  r4, r4, r6
-            eor  r5, r5, r7
-            strd r4, r5, [r3, #0]
-
-            ldrd r4, r5, [r3, #40]           @ row 1 lane
-            eor  r4, r4, r6
-            eor  r5, r5, r7
-            strd r4, r5, [r3, #40]
-
-            ldrd r4, r5, [r3, #80]           @ row 2 lane
-            eor  r4, r4, r6
-            eor  r5, r5, r7
-            strd r4, r5, [r3, #80]
-
-            ldrd r4, r5, [r3, #120]          @ row 3 lane
-            eor  r4, r4, r6
-            eor  r5, r5, r7
-            strd r4, r5, [r3, #120]
-
-            ldrd r4, r5, [r3, #160]          @ row 4 lane
-            eor  r4, r4, r6
-            eor  r5, r5, r7
-            strd r4, r5, [r3, #160]
-
-            add  r12, r12, #1
-            cmp  r12, #5
-            bne  ThetaApply
         mov r12, #0
     
     @ Rho/Pi Step: n offset, write into new position dst in 200 byte buffer
@@ -189,31 +158,42 @@
         @ table indexed with x = src mod 5, y = floor(src/5)
         @ dst = y + 5 * ((2x + 3y) mod 5)
         @ RHOPI src, dst, n
-        RHOPI 0, 0, 0
-        RHOPI 1, 10, 1
-        RHOPI 2, 20, 62
-        RHOPI 3, 5, 28
-        RHOPI 4, 15, 27
-        RHOPI 5, 16, 36
-        RHOPI 6, 1, 44
-        RHOPI 7, 11, 6
-        RHOPI 8, 21, 55
-        RHOPI 9, 6, 20
-        RHOPI 10, 7, 3
-        RHOPI 11, 17, 10
-        RHOPI 12, 2, 43
-        RHOPI 13, 12, 25
-        RHOPI 14, 22, 39
+                add  r1, sp, #80
+
+        ldrd r8, r9, [sp, #40]          @ D[0]
+        RHOPI 0,  0,  0
+        RHOPI 5,  16, 36
+        RHOPI 10, 7,  3
         RHOPI 15, 23, 41
-        RHOPI 16, 8, 45
-        RHOPI 17, 18, 15
-        RHOPI 18, 3, 21
-        RHOPI 19, 13, 8
         RHOPI 20, 14, 18
+
+        ldrd r8, r9, [sp, #48]          @ D[1]
+        RHOPI 1,  10, 1
+        RHOPI 6,  1,  44
+        RHOPI 11, 17, 10
+        RHOPI 16, 8,  45
         RHOPI 21, 24, 2
-        RHOPI 22, 9, 61
+
+        ldrd r8, r9, [sp, #56]          @ D[2]
+        RHOPI 2,  20, 62
+        RHOPI 7,  11, 6
+        RHOPI 12, 2,  43
+        RHOPI 17, 18, 15
+        RHOPI 22, 9,  61
+
+        ldrd r8, r9, [sp, #64]          @ D[3]
+        RHOPI 3,  5,  28
+        RHOPI 8,  21, 55
+        RHOPI 13, 12, 25
+        RHOPI 18, 3,  21
         RHOPI 23, 19, 56
-        RHOPI 24, 4, 14
+
+        ldrd r8, r9, [sp, #72]          @ D[4]
+        RHOPI 4,  15, 27
+        RHOPI 9,  6,  20
+        RHOPI 14, 22, 39
+        RHOPI 19, 13, 8
+        RHOPI 24, 4,  14
 
     @ Chi Step: mix RHOPI buffer lanes back into state (r0)
     @ A[x] = B[x] ^ (~B[x+1] & B[x+2])
