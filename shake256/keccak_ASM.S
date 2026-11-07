@@ -56,6 +56,47 @@
     strd r6, r7, [r1, #8*\dst]
     .endif
     .endm
+
+    @ Avoid rereading all lanes from memory each round in ParityLoop by merging parity calculation into chi step
+    .macro CHIMIX                       @ r0 = A base, r1 = B base (low or high half)
+    mov r8, #0                          @ C[0]
+    mov r9, #0
+    mov r10, #0
+    mov r11, #0
+    mov r12, #0
+    mov  lr,  #5
+    1:
+        ldr  r2, [r1, #0]               @ B[0]
+        ldr  r3, [r1, #8]
+        ldr  r4, [r1, #16]
+        ldr  r5, [r1, #24]
+        ldr  r6, [r1, #32]
+        bic r7, r4, r3                  @ r7 = B2 & ~B1
+        eor r7, r7, r2                  @ r7 = B0 ^ (~B1 & B2) = A[0]
+        str r7, [r0, #0]
+        eor  r8, r8, r7                 @ C[0] ^= A[0] Calculate next round parity (replace ParityLoop)
+        bic r7, r5, r4
+        eor r7, r7, r3
+        str r7, [r0, #8]
+        eor r9, r9, r7
+        bic r7, r6, r5
+        eor r7, r7, r4
+        str r7, [r0, #16]
+        eor r10, r10, r7
+        bic r7, r2, r6
+        eor r7, r7, r5
+        str r7, [r0, #24]
+        eor r11, r11, r7
+        bic r7, r3, r2
+        eor r7, r7, r6
+        str r7, [r0, #32]
+        eor r12, r12, r7
+
+        add r0, r0, #40
+        add r1, r1, #40
+        subs lr, lr, #1
+        bne 1b
+    .endm
     .align 2
     Keccak_ASM:
         push {r4-r11, lr}
@@ -64,10 +105,9 @@
         str  r2, [sp, #280]         @ pointer to the current round constant
         mov  r2, #24
         str  r2, [sp, #284]         @ round counter
+        mov r12, #0
 
     @ Theta Step (θ)
-        RoundLoop:
-            mov  r12, #0
         ParityLoop:                     @ Computes Parity C[x] = 
             add r3, r0, r12, lsl #3     @ r3 = r0 + 8x
             ldrd r4, r5, [r3, #0]       @ (r4 = x low, r5 = x high)
@@ -89,7 +129,8 @@
             add r12, r12, #1 
             cmp r12, #5
             bne ParityLoop
-        
+
+        RoundLoop:
         mov r12, #0
         @ D[x][z] = C[x-1][z] ^ C[x+1][z-1], D[x] = C[x-1] ^ ROL64(C[x+1], 1), 
         @ ROL64(C[x], 1) = (low << 1) | (high >> 31)
@@ -152,14 +193,12 @@
         mov r12, #0
     
     @ Rho/Pi Step: n offset, write into new position dst in 200 byte buffer
-        add  r1, sp, #80
         @ src = 0-24
         @ n = FIPS 202 offsets used in sample implementation code https://keccak.team/keccak_specs_summary.html
         @ table indexed with x = src mod 5, y = floor(src/5)
         @ dst = y + 5 * ((2x + 3y) mod 5)
         @ RHOPI src, dst, n
-                add  r1, sp, #80
-
+        add  r1, sp, #80
         ldrd r8, r9, [sp, #40]          @ D[0]
         RHOPI 0,  0,  0
         RHOPI 5,  16, 36
@@ -197,77 +236,42 @@
 
     @ Chi Step: mix RHOPI buffer lanes back into state (r0)
     @ A[x] = B[x] ^ (~B[x+1] & B[x+2])
-        ChiMix:
-            add  r10, r12, r12, lsl #2         @ r10 = 5*y
-            add  r8, r1, r10, lsl #3           @ r8 = &B[5y]      (r1 + 40*y)
-            add  r9, r0, r10, lsl #3           @ r9 = &A[5y]  (r0 + 40*y)
+        CHIMIX                     @ low halves
+        str  r8,  [sp, #0]          @ C[x] low
+        str  r9,  [sp, #8]
+        str  r10, [sp, #16]
+        str  r11, [sp, #24]
+        str  r12, [sp, #32]
 
-            @ lows
-            ldr  r2, [r8, #0]                   @ B0 low
-            ldr  r3, [r8, #8]                   @ B1 low
-            ldr  r4, [r8, #16]                  @ B2 low
-            ldr  r5, [r8, #24]                  @ B3 low
-            ldr  r6, [r8, #32]                  @ B4 low 
-
-            bic  r7, r4, r3
-            eor  r7, r7, r2
-            str  r7, [r9, #0]           @ A0 = B0 ^ (~B0+1 & B0+2)
-            bic r7, r5, r4
-            eor r7, r7, r3
-            str r7, [r9, #8]
-            bic r7, r6, r5
-            eor r7, r7, r4
-            str r7, [r9, #16]
-            bic r7, r2, r6
-            eor r7, r7, r5
-            str r7, [r9, #24]
-            bic r7, r3, r2
-            eor r7, r7, r6
-            str r7, [r9, #32]
-
-            @ highs
-            ldr  r2, [r8, #4]
-            ldr  r3, [r8, #12]
-            ldr  r4, [r8, #20]
-            ldr  r5, [r8, #28]
-            ldr  r6, [r8, #36]
-
-            bic  r7, r4, r3
-            eor  r7, r7, r2
-            str  r7, [r9, #4]
-            bic  r7, r5, r4
-            eor  r7, r7, r3
-            str  r7, [r9, #12]
-            bic  r7, r6, r5
-            eor  r7, r7, r4
-            str  r7, [r9, #20]
-            bic  r7, r2, r6
-            eor  r7, r7, r5
-            str  r7, [r9, #28]
-            bic  r7, r3, r2
-            eor  r7, r7, r6
-            str  r7, [r9, #36]
-
-            add  r12, r12, #1
-            cmp  r12, #5
-            bne  ChiMix
+        sub  r0, r0, #196       @ back to base + 4
+        sub  r1, r1, #196
+        CHIMIX                     @ high halves
+        str  r8,  [sp, #4]          @ C[x] high
+        str  r9,  [sp, #12]
+        str  r10, [sp, #20]
+        str  r11, [sp, #28]
+        str  r12, [sp, #36]
+        sub  r0, r0, #204           @ restore r0 = state base
 
 
     @ Iota Step: add in round constants (FIPS 202) https://keccak.team/keccak_specs_summary.html
     @ Break back to RoundLoop if not on final round
         ldr  r2, [sp, #280]
-        ldrd r4, r5, [r0]           @ lane 0
-        ldrd r6, r7, [r2], #8       @ round constant, then r2 += 8
+        ldrd r6, r7, [r2], #8       @ round constant
+        str  r2, [sp, #280]
+        ldrd r4, r5, [r0]           @ state lane 0
         eor  r4, r4, r6
         eor  r5, r5, r7
         strd r4, r5, [r0]
-        str  r2, [sp, #280]         @ save the advanced pointer
+        ldrd r4, r5, [sp]           @ C[0]
+        eor  r4, r4, r6
+        eor  r5, r5, r7
+        strd r4, r5, [sp]
 
         ldr  r2, [sp, #284]
         subs r2, r2, #1
         str  r2, [sp, #284]
         bne  RoundLoop
-
         add  sp, sp, #288
         pop  {r4-r11, pc}
         .size Keccak_ASM, .-Keccak_ASM

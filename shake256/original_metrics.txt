@@ -1,89 +1,124 @@
-=== Test 1: SHAKE256 Test Vector ===
+VERSION 0 (Default):
+    === Test 1: SHAKE256 Test Vector ===
 
-✓ SHAKE256 test vector PASSED
-
-
-=== Benchmarks ===
-
-cycles for SHAKE256: 
-303066
-
-cycles for KeccakF1600: 
-19796
-
-Benchmarks completed!
+    ✓ SHAKE256 test vector PASSED
 
 
-=== Stack Usage Measurements ===
+    === Benchmarks ===
 
-Measuring SHAKE256 stack usage...
+    cycles for SHAKE256: 
+    303066
 
-stack usage for SHAKE256: 912 bytes
-Measuring KeccakF1600 stack usage...
+    cycles for KeccakF1600: 
+    19796
 
-stack usage for KeccakF1600: 296 bytes
-Stack measurements completed!
+    Benchmarks completed!
 
 
-*** ALL GOOD ***
+    === Stack Usage Measurements ===
+
+    Measuring SHAKE256 stack usage...
+
+    stack usage for SHAKE256: 912 bytes
+    Measuring KeccakF1600 stack usage...
+
+    stack usage for KeccakF1600: 296 bytes
+    Stack measurements completed!
+
+
+    *** ALL GOOD ***
 
 VERSION 1
-=== Test 1: SHAKE256 Test Vector ===
+    === Test 1: SHAKE256 Test Vector ===
 
-✓ SHAKE256 test vector PASSED
-
-
-=== Benchmarks ===
-
-cycles for SHAKE256:
-382810
-
-cycles for KeccakF1600: 
-25153
-
-Benchmarks completed!
+    ✓ SHAKE256 test vector PASSED
 
 
-=== Stack Usage Measurements ===
+    === Benchmarks ===
 
-Measuring SHAKE256 stack usage...
+    cycles for SHAKE256:
+    382810
 
-stack usage for SHAKE256: 940 bytes
-Measuring KeccakF1600 stack usage...
+    cycles for KeccakF1600: 
+    25153
 
-stack usage for KeccakF1600: 324 bytes
-Stack measurements completed!
+    Benchmarks completed!
 
 
-*** ALL GOOD ***
+    === Stack Usage Measurements ===
+
+    Measuring SHAKE256 stack usage...
+
+    stack usage for SHAKE256: 940 bytes
+    Measuring KeccakF1600 stack usage...
+
+    stack usage for KeccakF1600: 324 bytes
+    Stack measurements completed!
+
+
+    *** ALL GOOD ***
 
 VERSION 1.1
 ThetaApply Worked into RHOPI macro
-=== Test 1: SHAKE256 Test Vector ===
+    === Test 1: SHAKE256 Test Vector ===
 
-✓ SHAKE256 test vector PASSED
-
-
-=== Benchmarks ===
-
-cycles for SHAKE256:
-316976
-
-cycles for KeccakF1600: 
-20748
-
-Benchmarks completed!
+    ✓ SHAKE256 test vector PASSED
 
 
-=== Stack Usage Measurements ===
+    === Benchmarks ===
 
-Measuring SHAKE256 stack usage...
+    cycles for SHAKE256:
+    316976
 
-stack usage for SHAKE256: 940 bytes
-Measuring KeccakF1600 stack usage...
+    cycles for KeccakF1600: 
+    20748
 
-stack usage for KeccakF1600: 324 bytes
-Stack measurements completed!
+    Benchmarks completed!
 
 
-*** ALL GOOD ***
+    === Stack Usage Measurements ===
+
+    Measuring SHAKE256 stack usage...
+
+    stack usage for SHAKE256: 940 bytes
+    Measuring KeccakF1600 stack usage...
+
+    stack usage for KeccakF1600: 324 bytes
+    Stack measurements completed!
+
+
+    *** ALL GOOD ***
+
+VERSION 1.2 
+ParityLoop parity calculation merged into CHIMIX macro, moved above RoundLoop so only called once
+Iota step also XORs round constant into C[0] (modifies lane 0 after the parity is computed)
+
+    === Test 1: SHAKE256 Test Vector ===
+
+    ✓ SHAKE256 test vector PASSED
+
+
+    === Benchmarks ===
+
+    cycles for SHAKE256:
+    301953
+
+    cycles for KeccakF1600:
+    19752
+
+    Benchmarks completed!
+
+
+    === Stack Usage Measurements ===
+
+    Measuring SHAKE256 stack usage...
+
+    stack usage for SHAKE256: 940 bytes
+    Measuring KeccakF1600 stack usage...
+
+    stack usage for KeccakF1600: 324 bytes
+    Stack measurements completed!
+
+
+    *** ALL GOOD ***
+
