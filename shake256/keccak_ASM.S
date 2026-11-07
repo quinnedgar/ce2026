@@ -58,44 +58,58 @@
     .endm
 
     @ Avoid rereading all lanes from memory each round in ParityLoop by merging parity calculation into chi step
-    .macro CHIMIX                       @ r0 = A base, r1 = B base (low or high half)
-    mov r8, #0                          @ C[0]
-    mov r9, #0
-    mov r10, #0
-    mov r11, #0
-    mov r12, #0
-    mov  lr,  #5
-    1:
-        ldr  r2, [r1, #0]               @ B[0]
-        ldr  r3, [r1, #8]
-        ldr  r4, [r1, #16]
-        ldr  r5, [r1, #24]
-        ldr  r6, [r1, #32]
-        bic r7, r4, r3                  @ r7 = B2 & ~B1
-        eor r7, r7, r2                  @ r7 = B0 ^ (~B1 & B2) = A[0]
-        str r7, [r0, #0]
-        eor  r8, r8, r7                 @ C[0] ^= A[0] Calculate next round parity (replace ParityLoop)
-        bic r7, r5, r4
-        eor r7, r7, r3
-        str r7, [r0, #8]
-        eor r9, r9, r7
-        bic r7, r6, r5
-        eor r7, r7, r4
-        str r7, [r0, #16]
-        eor r10, r10, r7
-        bic r7, r2, r6
-        eor r7, r7, r5
-        str r7, [r0, #24]
-        eor r11, r11, r7
-        bic r7, r3, r2
-        eor r7, r7, r6
-        str r7, [r0, #32]
-        eor r12, r12, r7
+    @ Modifications:
+    @   first = 1 for row 0 (initialises the accumulators), else 0
+    @   n = offset (row y, half h ->  n = 40*y + h)
 
-        add r0, r0, #40
-        add r1, r1, #40
-        subs lr, lr, #1
-        bne 1b
+    .macro CHIMIX n, first              @ r0 = A base, r1 = B base (low or high half)
+    ldr  r2, [r1, #\n]            @ B[0]
+    ldr  r3, [r1, #\n+8]
+    ldr  r4, [r1, #\n+16]
+    ldr  r5, [r1, #\n+24]
+    ldr  r6, [r1, #\n+32]
+    .if \first                      @ Row 0, no zeroing and no extra XOR because C[x] = A[x] of row 0
+    bic r8,  r4, r3                @ r8  = B2 & ~B1
+    eor r8,  r8, r2                @ r8  = A[0] = B0 ^ (~B1 & B2)
+    str r8,  [r0, #\n]
+    bic r9,  r5, r4
+    eor r9,  r9, r3
+    str r9,  [r0, #\n+8]
+    bic r10, r6, r5
+    eor r10, r10, r4
+    str r10, [r0, #\n+16]
+    bic r11, r2, r6
+    eor r11, r11, r5 
+    str r11, [r0, #\n+24]
+    bic r12, r3, r2
+    eor r12, r12, r6
+    str r12, [r0, #\n+32]
+    .else                          @ Rows 1-4: same Chi, then XOR each result into its column accumulator.
+    bic r7, r4, r3
+    eor r7, r7, r2                 @ A[0]
+    str r7, [r0, #\n]
+    eor r8, r8, r7                 @ C[0] ^= A[0]
+
+    bic r7, r5, r4
+    eor r7, r7, r3
+    str r7, [r0, #\n+8]
+    eor r9, r9, r7
+
+    bic r7, r6, r5
+    eor r7, r7, r4
+    str r7, [r0, #\n+16]
+    eor r10, r10, r7
+
+    bic r7, r2, r6
+    eor r7, r7, r5
+    str r7, [r0, #\n+24]
+    eor r11, r11, r7
+
+    bic r7, r3, r2
+    eor  r7, r7, r6
+    str r7, [r0, #\n+32]
+    eor r12, r12, r7
+    .endif
     .endm
     .align 2
     Keccak_ASM:
@@ -131,7 +145,6 @@
             bne ParityLoop
 
         RoundLoop:
-        mov r12, #0
         @ D[x][z] = C[x-1][z] ^ C[x+1][z-1], D[x] = C[x-1] ^ ROL64(C[x+1], 1), 
         @ ROL64(C[x], 1) = (low << 1) | (high >> 31)
 
@@ -189,8 +202,6 @@
         eor r8, r6, r8
         eor r9, r7, r9
         strd r8, r9, [sp, #72]
-
-        mov r12, #0
     
     @ Rho/Pi Step: n offset, write into new position dst in 200 byte buffer
         @ src = 0-24
@@ -236,22 +247,29 @@
 
     @ Chi Step: mix RHOPI buffer lanes back into state (r0)
     @ A[x] = B[x] ^ (~B[x+1] & B[x+2])
-        CHIMIX                     @ low halves
-        str  r8,  [sp, #0]          @ C[x] low
+        @ ---- low words ----
+        CHIMIX 0, 1
+        CHIMIX 40, 0
+        CHIMIX 80, 0
+        CHIMIX 120, 0
+        CHIMIX 160, 0
+        str  r8,  [sp, #0]          @ C[0..4] low halves
         str  r9,  [sp, #8]
         str  r10, [sp, #16]
         str  r11, [sp, #24]
         str  r12, [sp, #32]
 
-        sub  r0, r0, #196       @ back to base + 4
-        sub  r1, r1, #196
-        CHIMIX                     @ high halves
-        str  r8,  [sp, #4]          @ C[x] high
+        @ ---- high words ----
+        CHIMIX 4,   1
+        CHIMIX 44,  0
+        CHIMIX 84,  0
+        CHIMIX 124, 0
+        CHIMIX 164, 0
+        str  r8,  [sp, #4]          @ C[0..4] high halves
         str  r9,  [sp, #12]
         str  r10, [sp, #20]
         str  r11, [sp, #28]
         str  r12, [sp, #36]
-        sub  r0, r0, #204           @ restore r0 = state base
 
 
     @ Iota Step: add in round constants (FIPS 202) https://keccak.team/keccak_specs_summary.html

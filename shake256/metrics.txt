@@ -29,6 +29,7 @@ VERSION 0 (Default):
     *** ALL GOOD ***
 
 VERSION 1
+Initial implementation
     === Test 1: SHAKE256 Test Vector ===
 
     ✓ SHAKE256 test vector PASSED
@@ -105,6 +106,37 @@ Iota step also XORs round constant into C[0] (modifies lane 0 after the parity i
 
     cycles for KeccakF1600:
     19752
+
+    Benchmarks completed!
+
+
+    === Stack Usage Measurements ===
+
+    Measuring SHAKE256 stack usage...
+
+    stack usage for SHAKE256: 940 bytes
+    Measuring KeccakF1600 stack usage...
+
+    stack usage for KeccakF1600: 324 bytes
+    Stack measurements completed!
+
+
+    *** ALL GOOD ***
+
+VERSION 1.3
+CHIMIX macro modified to handle row of half, rather than entire half. Eliminates loop and iteration logic to save cycles. 
+    === Test 1: SHAKE256 Test Vector ===
+
+    ✓ SHAKE256 test vector PASSED
+
+
+    === Benchmarks ===
+
+    cycles for SHAKE256: 
+    297984
+
+    cycles for KeccakF1600: 
+    19439
 
     Benchmarks completed!
 
