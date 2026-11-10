@@ -35,11 +35,11 @@
 
     @ Conditional rotation (rho) into new lane (pi)
     .macro RHOPI src, dst, n            @ Uses r4-r7, assumes r0 is state ptr
-    ldrd r4, r5, [r0, #8 * \src]
+    ldrd r4, r5, [r0, #8*\src]
     eor  r4, r4, r8                     @ fused theta
     eor  r5, r5, r9
     .if \n == 0
-    strd r4, r5, [r1, #8 * \dst]        @ 0 rotation
+    strd r4, r5, [r1, #8*\dst]        @ 0 rotation
     .elseif \n < 32                     @ 0 < n < 32 rotation
     lsl  r6, r4, #\n                    @ new low  = low << n | high >> (32-n)
     orr  r6, r6, r5, lsr #(32-\n)       
@@ -62,15 +62,18 @@
     @   first = 1 for row 0 (initialises the accumulators), else 0
     @   n = offset (row y, half h ->  n = 40*y + h)
 
-    .macro CHIMIX n, first              @ r0 = A base, r1 = B base (low or high half)
-    ldr  r2, [r1, #\n]            @ B[0]
+    .macro CHIMIX n, first, rc=r7         @ r0 = A base, r1 = B base (low or high half)
+    ldr  r2, [r1, #\n]                  @ B[0]
     ldr  r3, [r1, #\n+8]
     ldr  r4, [r1, #\n+16]
     ldr  r5, [r1, #\n+24]
     ldr  r6, [r1, #\n+32]
-    .if \first                      @ Row 0, no zeroing and no extra XOR because C[x] = A[x] of row 0
+    .if \first                          @ Row 0, no zeroing and no extra XOR because C[x] = A[x] of row 0
     bic r8,  r4, r3                @ r8  = B2 & ~B1
     eor r8,  r8, r2                @ r8  = A[0] = B0 ^ (~B1 & B2)
+    .ifnc \rc, none
+        eor r8, r8, \rc          @ iota fused in for lane 0
+    .endif
     str r8,  [r0, #\n]
     bic r9,  r5, r4
     eor r9,  r9, r3
@@ -84,9 +87,9 @@
     bic r12, r3, r2
     eor r12, r12, r6
     str r12, [r0, #\n+32]
-    .else                          @ Rows 1-4: same Chi, then XOR each result into its column accumulator.
+    .else                          @ 1.3 update: Chi + XOR each result into accumulator.
     bic r7, r4, r3
-    eor r7, r7, r2                 @ A[0]
+    eor r7, r7, r2               @ A[0]
     str r7, [r0, #\n]
     eor r8, r8, r7                 @ C[0] ^= A[0]
 
@@ -111,18 +114,19 @@
     eor r12, r12, r7
     .endif
     .endm
+
+
     .align 2
     Keccak_ASM:
         push {r4-r11, lr}
-        sub  sp, sp, #288
-        adr  r2, round_constants
-        str  r2, [sp, #280]         @ pointer to the current round constant
-        mov  r2, #24
-        str  r2, [sp, #284]         @ round counter
+        sub sp, sp, #288
+        adr lr, round_constants
+        mov r2, #24
+        str r2, [sp, #284]         @ round ctr
         mov r12, #0
 
     @ Theta Step (θ)
-        ParityLoop:                     @ Computes Parity C[x] = 
+        ParityLoop:                     @ parity C[x] = 
             add r3, r0, r12, lsl #3     @ r3 = r0 + 8x
             ldrd r4, r5, [r3, #0]       @ (r4 = x low, r5 = x high)
             ldrd r6, r7, [r3, #40]      @ (r6 = x+5 low, r7 = x+5 high)
@@ -144,65 +148,55 @@
             cmp r12, #5
             bne ParityLoop
 
+            ldr r8,  [sp, #4]
+            ldr r9,  [sp, #12]
+            ldr r10, [sp, #20]
+            ldr r11, [sp, #28]
+            ldr r12, [sp, #36]
+
         RoundLoop:
         @ D[x][z] = C[x-1][z] ^ C[x+1][z-1], D[x] = C[x-1] ^ ROL64(C[x+1], 1), 
         @ ROL64(C[x], 1) = (low << 1) | (high >> 31)
+        ldr  r2, [sp, #0]
+        ldr  r3, [sp, #8]
+        ldr  r4, [sp, #16]
+        ldr  r5, [sp, #24]
+        ldr  r6, [sp, #32]
 
         @ D[0] = C[4] ^ ROL64(C[1], 1)         
-        ldrd r4, r5, [sp, #8]       @ C[1] 
-        ldrd r6, r7, [sp, #32]      @ C[4]
-        lsl  r8, r4, #1            
-        orr  r8, r8, r5, lsr #31    @ r8 = r4 << 1 | r5 >> 31
-        lsl  r9, r5, #1            
-        orr  r9, r9, r4, lsr #31    @ r9 = r5 << 1 | r4 >> 31
-        eor r8, r6, r8              @ r8 = r6 ^ r8
-        eor r9, r7, r9              @ r9 = r7 ^ r9
-        strd r8, r9, [sp, #40]
+        @ D_lo = Clo[x-1] ^ Clo[x+1]<<1 ^ Chi[x+1]>>31
+        @ D_hi = Chi[x-1] ^ Chi[x+1]<<1 ^ Clo[x+1]>>31
+        eor r1, r6,  r3,  lsl #1    @ D[0]
+        eor r1, r1,  r9,  lsr #31
+        eor r7, r12, r9,  lsl #1
+        eor r7, r7,  r3,  lsr #31
+        strd r1, r7, [sp, #40]
 
-        @D[1] = C[0] ^ ROL64(C[2], 1)
-        ldrd r4, r5, [sp, #16]       @ C[2] 
-        ldrd r6, r7, [sp]            @ C[0]
-        lsl  r8, r4, #1
-        orr  r8, r8, r5, lsr #31
-        lsl  r9, r5, #1
-        orr  r9, r9, r4, lsr #31
-        eor r8, r6, r8
-        eor r9, r7, r9
-        strd r8, r9, [sp, #48]
+        eor r1, r2,  r4,  lsl #1
+        eor r1, r1,  r10, lsr #31
+        eor r7, r8,  r10, lsl #1
+        eor r7, r7,  r4,  lsr #31
+        strd r1, r7, [sp, #48]
 
-        @D[2] = C[1] ^ ROL64(C[3], 1)
-        ldrd r4, r5, [sp, #24]       @ C[3] 
-        ldrd r6, r7, [sp, #8]        @ C[1]
-        lsl  r8, r4, #1
-        orr  r8, r8, r5, lsr #31
-        lsl  r9, r5, #1
-        orr  r9, r9, r4, lsr #31
-        eor r8, r6, r8
-        eor r9, r7, r9
-        strd r8, r9, [sp, #56]
+        eor r1, r3,  r5,  lsl #1
+        eor r1, r1,  r11, lsr #31
+        eor r7, r9,  r11, lsl #1
+        eor r7, r7,  r5,  lsr #31
+        strd r1, r7, [sp, #56]
 
-        @D[3] = C[2] ^ ROL64(C[4], 1)
-        ldrd r4, r5, [sp, #32]       @ C[4] 
-        ldrd r6, r7, [sp, #16]       @ C[2]
-        lsl  r8, r4, #1
-        orr  r8, r8, r5, lsr #31
-        lsl  r9, r5, #1
-        orr  r9, r9, r4, lsr #31
-        eor r8, r6, r8
-        eor r9, r7, r9
-        strd r8, r9, [sp, #64]
+        eor r1, r4,  r6,  lsl #1
+        eor r1, r1,  r12, lsr #31
+        eor r7, r10, r12, lsl #1
+        eor r7, r7,  r6,  lsr #31
+        strd r1, r7, [sp, #64]
 
-        @D[4] = C[3] ^ ROL64(C[0], 1)
-        ldrd r4, r5, [sp]            @ C[0] 
-        ldrd r6, r7, [sp, #24]       @ C[3]
-        lsl  r8, r4, #1
-        orr  r8, r8, r5, lsr #31
-        lsl  r9, r5, #1
-        orr  r9, r9, r4, lsr #31
-        eor r8, r6, r8
-        eor r9, r7, r9
-        strd r8, r9, [sp, #72]
-    
+        eor r1, r5,  r2,  lsl #1
+        eor r1, r1,  r8,  lsr #31
+        eor r7, r11, r8,  lsl #1
+        eor r7, r7,  r2,  lsr #31
+        strd r1, r7, [sp, #72]
+
+        add r1, sp, #80             
     @ Rho/Pi Step: n offset, write into new position dst in 200 byte buffer
         @ src = 0-24
         @ n = FIPS 202 offsets used in sample implementation code https://keccak.team/keccak_specs_summary.html
@@ -247,7 +241,7 @@
 
     @ Chi Step: mix RHOPI buffer lanes back into state (r0)
     @ A[x] = B[x] ^ (~B[x+1] & B[x+2])
-        @ ---- low words ----
+        ldr  r7, [lr]
         CHIMIX 0, 1
         CHIMIX 40, 0
         CHIMIX 80, 0
@@ -259,12 +253,13 @@
         str  r11, [sp, #24]
         str  r12, [sp, #32]
 
-        @ ---- high words ----
+        ldr  r7, [lr, #4]
         CHIMIX 4,   1
         CHIMIX 44,  0
         CHIMIX 84,  0
         CHIMIX 124, 0
         CHIMIX 164, 0
+        add  lr, lr, #8
         str  r8,  [sp, #4]          @ C[0..4] high halves
         str  r9,  [sp, #12]
         str  r10, [sp, #20]
@@ -272,23 +267,12 @@
         str  r12, [sp, #36]
 
 
-    @ Iota Step: add in round constants (FIPS 202) https://keccak.team/keccak_specs_summary.html
-    @ Break back to RoundLoop if not on final round
-        ldr  r2, [sp, #280]
-        ldrd r6, r7, [r2], #8       @ round constant
-        str  r2, [sp, #280]
-        ldrd r4, r5, [r0]           @ state lane 0
-        eor  r4, r4, r6
-        eor  r5, r5, r7
-        strd r4, r5, [r0]
-        ldrd r4, r5, [sp]           @ C[0]
-        eor  r4, r4, r6
-        eor  r5, r5, r7
-        strd r4, r5, [sp]
+    @ Iota Step: merged into CHIMIX macro 
+    @ (FIPS 202) https://keccak.team/keccak_specs_summary.html
 
-        ldr  r2, [sp, #284]
-        subs r2, r2, #1
-        str  r2, [sp, #284]
+        ldr  r6, [sp, #284]
+        subs r6, r6, #1
+        str  r6, [sp, #284]
         bne  RoundLoop
         add  sp, sp, #288
         pop  {r4-r11, pc}

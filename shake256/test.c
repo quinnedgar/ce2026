@@ -122,7 +122,7 @@ static void run_speed(void)
 
   // Benchmark KeccakF1600 permutation
   oldcount = hal_get_time();
-  KeccakF1600_StatePermute(state);
+  Keccak_ASM(state);
   newcount = hal_get_time();
   hal_send_str("cycles for KeccakF1600: ");
 #ifdef MPS2_AN386
@@ -157,7 +157,7 @@ static void run_stack(void)
   uint64_t state[25] = {0};
   hal_send_str("Measuring KeccakF1600 stack usage...\n");
   hal_spraystack();
-  KeccakF1600_StatePermute(state);
+  Keccak_ASM(state);
   stack_usage = hal_checkstack();
   sprintf(outstr, "stack usage for KeccakF1600: %lu bytes", (unsigned long)stack_usage);
   hal_send_str(outstr);
@@ -167,7 +167,8 @@ static void run_stack(void)
 
 int main(void)
 {
-  hal_setup(CLOCK_FAST);
+  // hal_setup(CLOCK_FAST);
+  hal_setup(CLOCK_BENCHMARK);
 
   // First test: verify SHAKE256 test vector
   int test_result = run_test();

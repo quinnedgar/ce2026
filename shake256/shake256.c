@@ -75,7 +75,7 @@ void KeccakF1600_StatePermute(uint64_t *state){
  *
  * Arguments:   - uint64_t *state: pointer to input/output Keccak state
  **************************************************/
-// void KeccakF1600_StatePermute_OLD(uint64_t *state) {
+// void KeccakF1600_StatePermute(uint64_t *state) {
 //     int round;
 
 //     uint64_t Aba, Abe, Abi, Abo, Abu;

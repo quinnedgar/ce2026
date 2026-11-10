@@ -154,3 +154,36 @@ CHIMIX macro modified to handle row of half, rather than entire half. Eliminates
 
     *** ALL GOOD ***
 
+
+VERSION 1.3 with CLOCK_BENCHMARK instead of CLOCK_FAST 
+    === Test 1: SHAKE256 Test Vector ===
+
+    ✓ SHAKE256 test vector PASSED
+
+
+    === Benchmarks ===
+
+    cycles for SHAKE256: 
+    274846
+
+    cycles for KeccakF1600: 
+    17887
+
+    Benchmarks completed!
+
+
+    === Stack Usage Measurements ===
+
+    Measuring SHAKE256 stack usage...
+
+    stack usage for SHAKE256: 940 bytes
+    Measuring KeccakF1600 stack usage...
+
+    stack usage for KeccakF1600: 324 bytes
+    Stack measurements completed!
+
+
+    *** ALL GOOD ***
+
+
+
