@@ -9,56 +9,103 @@
     .align 3
     round_constants:
         .word 0x00000001, 0x00000000
-        .word 0x00008082, 0x00000000
-        .word 0x0000808a, 0x80000000
-        .word 0x80008000, 0x80000000
-        .word 0x0000808b, 0x00000000
-        .word 0x80000001, 0x00000000
-        .word 0x80008081, 0x80000000
-        .word 0x00008009, 0x80000000
-        .word 0x0000008a, 0x00000000
-        .word 0x00000088, 0x00000000
-        .word 0x80008009, 0x00000000
-        .word 0x8000000a, 0x00000000
-        .word 0x8000808b, 0x00000000
-        .word 0x0000008b, 0x80000000
-        .word 0x00008089, 0x80000000
-        .word 0x00008003, 0x80000000
-        .word 0x00008002, 0x80000000
-        .word 0x00000080, 0x80000000
-        .word 0x0000800a, 0x00000000
-        .word 0x8000000a, 0x80000000
-        .word 0x80008081, 0x80000000
-        .word 0x00008080, 0x80000000
-        .word 0x80000001, 0x00000000
-        .word 0x80008008, 0x80000000
+        .word 0x00000000, 0x00000089
+        .word 0x00000000, 0x8000008b
+        .word 0x00000000, 0x80008080
+        .word 0x00000001, 0x0000008b
+        .word 0x00000001, 0x00008000
+        .word 0x00000001, 0x80008088
+        .word 0x00000001, 0x80000082
+        .word 0x00000000, 0x0000000b
+        .word 0x00000000, 0x0000000a
+        .word 0x00000001, 0x00008082
+        .word 0x00000000, 0x00008003
+        .word 0x00000001, 0x0000808b
+        .word 0x00000001, 0x8000000b
+        .word 0x00000001, 0x8000008a
+        .word 0x00000001, 0x80000081
+        .word 0x00000000, 0x80000081
+        .word 0x00000000, 0x80000008
+        .word 0x00000000, 0x00000083
+        .word 0x00000000, 0x80008003
+        .word 0x00000001, 0x80008088
+        .word 0x00000000, 0x80000088
+        .word 0x00000001, 0x00008000
+        .word 0x00000000, 0x80008082
+
+    .macro INTERLEAVE src_H, src_L, dst_E, dst_O, t1=r2, t2=r3
+    eor \t1, \src_H, \src_L, lsr #16
+    uxth \t1, \t1                       @ & 0x0000FFFF
+    eor \dst_O, \src_H, \t1
+    eor \dst_E, \src_L, \t1, lsl #16
+    eor \t1, \dst_O, \dst_E, lsr #8
+    and \t1, \t1, #0x00FF00FF
+    eor \dst_O, \dst_O, \t1
+    eor \dst_E, \dst_E, \t1, lsl #8
+    eor \t1, \dst_O, \dst_E, lsr #4
+    and \t1, \t1, #0x0F0F0F0F
+    eor \dst_O, \dst_O, \t1
+    eor \dst_E, \dst_E, \t1, lsl #4
+    eor \t1, \dst_O, \dst_E, lsr #2
+    and \t1, \t1, #0x33333333
+    eor \dst_O, \dst_O, \t1
+    eor \dst_E, \dst_E, \t1, lsl #2
+    eor \t1, \dst_O, \dst_E, lsr #1
+    and \t1, \t1, #0x55555555
+    eor \dst_O, \dst_O, \t1
+    eor \dst_E, \dst_E, \t1, lsl #1
+    .endm
+
+    .macro DEINTERLEAVE src_E, src_O, dst_L, dst_H, t1=r2, t2=r3
+    eor \t1, \src_O, \src_E, lsr #1
+    and \t1, \t1, #0x55555555
+    eor \dst_H, \src_O, \t1
+    eor \dst_L, \src_E, \t1, lsl #1
+    eor \t1, \dst_H, \dst_L, lsr #2
+    and \t1, \t1, #0x33333333
+    eor \dst_H, \dst_H, \t1
+    eor \dst_L, \dst_L, \t1, lsl #2
+    eor \t1, \dst_H, \dst_L, lsr #4
+    and \t1, \t1, #0x0F0F0F0F
+    eor \dst_H, \dst_H, \t1
+    eor \dst_L, \dst_L, \t1, lsl #4
+    eor \t1, \dst_H, \dst_L, lsr #8
+    and \t1, \t1, #0x00FF00FF
+    eor \dst_H, \dst_H, \t1
+    eor \dst_L, \dst_L, \t1, lsl #8
+    eor \t1, \dst_H, \dst_L, lsr #16
+    uxth \t1, \t1                       @ & 0x0000FFFF
+    eor \dst_H, \dst_H, \t1
+    eor \dst_L, \dst_L, \t1, lsl #16
+    .endm
+
 
     @ Conditional rotation (rho) into new lane (pi)
     .macro RHOPI src, dst, n            @ Uses r4-r7, assumes r0 is state ptr
     ldrd r4, r5, [r0, #8*\src]
     eor  r4, r4, r8                     @ fused theta
     eor  r5, r5, r9
+    .if (\n & 1) == 0
     .if \n == 0
-    strd r4, r5, [r1, #8*\dst]        @ 0 rotation
-    .elseif \n < 32                     @ 0 < n < 32 rotation
-    lsl  r6, r4, #\n                    @ new low  = low << n | high >> (32-n)
-    orr  r6, r6, r5, lsr #(32-\n)       
-    lsl  r7, r5, #\n                    @ new high = high << n | low >> (32-n)
-    orr  r7, r7, r4, lsr #(32-\n)
+    strd r4, r5, [r1, #8*\dst]
+    .else
+    ror  r6, r4, #(32 - \n/2)
+    ror  r7, r5, #(32 - \n/2)
     strd r6, r7, [r1, #8*\dst]
-    .elseif \n == 32
-    strd r5, r4, [r1, #8*\dst]          @ n=32 just switch r4 w r5
-    .else                               @ n > 32
-    lsl  r6, r5, #(\n-32)               @ new low = high << n | low >> (64-n)
-    orr  r6, r6, r4, lsr #(64-\n)
-    lsl  r7, r4, #(\n-32)               @ new high = low << n | high >> (64-n)
-    orr  r7, r7, r5, lsr #(64-\n)
+    .endif
+    .else
+    ror  r6, r5, #(32 - (\n+1)/2)     @ new E = ROL32(O, (n+1)/2)
+    .if \n == 1
+    strd r6, r4, [r1, #8*\dst]      @ new O = E, no rotate
+    .else
+    ror  r7, r4, #(32 - (\n-1)/2)   @ new O = ROL32(E, (n-1)/2)
     strd r6, r7, [r1, #8*\dst]
+    .endif
     .endif
     .endm
 
+
     @ Avoid rereading all lanes from memory each round in ParityLoop by merging parity calculation into chi step
-    @ Modifications:
     @   first = 1 for row 0 (initialises the accumulators), else 0
     @   n = offset (row y, half h ->  n = 40*y + h)
 
@@ -72,7 +119,7 @@
     bic r8,  r4, r3                @ r8  = B2 & ~B1
     eor r8,  r8, r2                @ r8  = A[0] = B0 ^ (~B1 & B2)
     .ifnc \rc, none
-        eor r8, r8, \rc          @ iota fused in for lane 0
+    eor r8, r8, \rc          @ iota fused in for lane 0
     .endif
     str r8,  [r0, #\n]
     bic r9,  r5, r4
@@ -92,35 +139,39 @@
     eor r7, r7, r2               @ A[0]
     str r7, [r0, #\n]
     eor r8, r8, r7                 @ C[0] ^= A[0]
-
     bic r7, r5, r4
     eor r7, r7, r3
     str r7, [r0, #\n+8]
     eor r9, r9, r7
-
     bic r7, r6, r5
     eor r7, r7, r4
     str r7, [r0, #\n+16]
     eor r10, r10, r7
-
     bic r7, r2, r6
     eor r7, r7, r5
     str r7, [r0, #\n+24]
     eor r11, r11, r7
-
     bic r7, r3, r2
     eor  r7, r7, r6
     str r7, [r0, #\n+32]
     eor r12, r12, r7
     .endif
     .endm
-
-
     .align 2
+
+
     Keccak_ASM:
         push {r4-r11, lr}
         sub sp, sp, #288
         adr lr, round_constants
+        mov  r1, r0
+        add  r12, r0, #200
+        IlvLoop:
+        ldrd r4, r5, [r1]                 @ r4 = L, r5 = H
+        INTERLEAVE r5, r4, r4, r5, r2     @ r4 = E, r5 = O (in place is safe)
+        strd r4, r5, [r1], #8
+        cmp  r1, r12
+        bne  IlvLoop
         mov r2, #24
         str r2, [sp, #284]         @ round ctr
         mov r12, #0
@@ -166,37 +217,28 @@
         @ D[0] = C[4] ^ ROL64(C[1], 1)         
         @ D_lo = Clo[x-1] ^ Clo[x+1]<<1 ^ Chi[x+1]>>31
         @ D_hi = Chi[x-1] ^ Chi[x+1]<<1 ^ Clo[x+1]>>31
-        eor r1, r6,  r3,  lsl #1    @ D[0]
-        eor r1, r1,  r9,  lsr #31
-        eor r7, r12, r9,  lsl #1
-        eor r7, r7,  r3,  lsr #31
+        eor r1, r6,  r9,  ror #31     @ D0_E = E4 ^ ROL32(O1,1)
+        eor r7, r12, r3               @ D0_O = O4 ^ E1
         strd r1, r7, [sp, #40]
 
-        eor r1, r2,  r4,  lsl #1
-        eor r1, r1,  r10, lsr #31
-        eor r7, r8,  r10, lsl #1
-        eor r7, r7,  r4,  lsr #31
+        eor r1, r2,  r10, ror #31     @ D1
+        eor r7, r8,  r4
         strd r1, r7, [sp, #48]
 
-        eor r1, r3,  r5,  lsl #1
-        eor r1, r1,  r11, lsr #31
-        eor r7, r9,  r11, lsl #1
-        eor r7, r7,  r5,  lsr #31
+        eor r1, r3,  r11, ror #31     @ D2
+        eor r7, r9,  r5
         strd r1, r7, [sp, #56]
 
-        eor r1, r4,  r6,  lsl #1
-        eor r1, r1,  r12, lsr #31
-        eor r7, r10, r12, lsl #1
-        eor r7, r7,  r6,  lsr #31
+        eor r1, r4,  r12, ror #31     @ D3
+        eor r7, r10, r6
         strd r1, r7, [sp, #64]
 
-        eor r1, r5,  r2,  lsl #1
-        eor r1, r1,  r8,  lsr #31
-        eor r7, r11, r8,  lsl #1
-        eor r7, r7,  r2,  lsr #31
+        eor r1, r5,  r8,  ror #31     @ D4
+        eor r7, r11, r2
         strd r1, r7, [sp, #72]
 
-        add r1, sp, #80             
+        add r1, sp, #80   
+
     @ Rho/Pi Step: n offset, write into new position dst in 200 byte buffer
         @ src = 0-24
         @ n = FIPS 202 offsets used in sample implementation code https://keccak.team/keccak_specs_summary.html
@@ -270,10 +312,18 @@
     @ Iota Step: merged into CHIMIX macro 
     @ (FIPS 202) https://keccak.team/keccak_specs_summary.html
 
-        ldr  r6, [sp, #284]
+        ldr r6, [sp, #284]
         subs r6, r6, #1
         str  r6, [sp, #284]
         bne  RoundLoop
+        mov  r1, r0
+        add  r12, r0, #200
+        DeilvLoop:
+        ldrd r4, r5, [r1]                 @ r4 = E, r5 = O
+        DEINTERLEAVE r4, r5, r4, r5, r2   @ r4 = L, r5 = H
+        strd r4, r5, [r1], #8
+        cmp  r1, r12
+        bne  DeilvLoop
         add  sp, sp, #288
         pop  {r4-r11, pc}
         .size Keccak_ASM, .-Keccak_ASM
