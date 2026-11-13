@@ -215,4 +215,97 @@ VERSION 1.4 Iota into CHIMIX
 
     *** ALL GOOD ***
 
+VERSION 2: Rudimentary bit interleaving with per round interleaving and deiterleaving
+
+    === Test 1: SHAKE256 Test Vector ===
+
+    ✓ SHAKE256 test vector PASSED
+
+
+    === Benchmarks ===
+
+    cycles for SHAKE256: 
+    247756
+
+    cycles for KeccakF1600: 
+    16081
+
+    Benchmarks completed!
+
+
+    === Stack Usage Measurements ===
+
+    Measuring SHAKE256 stack usage...
+
+    stack usage for SHAKE256: 940 bytes
+    Measuring KeccakF1600 stack usage...
+
+    stack usage for KeccakF1600: 324 bytes
+    Stack measurements completed!
+
+
+    *** ALL GOOD ***
+
+VERSION 2.1: Bit interleaving using external functions to change load64 and store64
+C functions. Interleaves/deinterleaves state per absorb/squeeze operations, not per round
+
+    === Test 1: SHAKE256 Test Vector ===
+
+    ✓ SHAKE256 test vector PASSED
+
+
+    === Benchmarks ===
+
+    cycles for SHAKE256: 
+    230733
+
+    cycles for KeccakF1600: 
+    14629
+
+    Benchmarks completed!
+
+
+    === Stack Usage Measurements ===
+
+    Measuring SHAKE256 stack usage...
+
+    stack usage for SHAKE256: 940 bytes
+    Measuring KeccakF1600 stack usage...
+
+    stack usage for KeccakF1600: 324 bytes
+    Stack measurements completed!
+
+
+    *** ALL GOOD ***
+
+VERSION 2.2: Merged steps into CHIROW macro
+
+    === Test 1: SHAKE256 Test Vector ===
+
+    ✓ SHAKE256 test vector PASSED
+
+
+    === Benchmarks ===
+
+    cycles for SHAKE256: 
+    209162
+
+    cycles for KeccakF1600: 
+    13191
+
+    Benchmarks completed!
+
+
+    === Stack Usage Measurements ===
+
+    Measuring SHAKE256 stack usage...
+
+    stack usage for SHAKE256: 940 bytes
+    Measuring KeccakF1600 stack usage...
+
+    stack usage for KeccakF1600: 324 bytes
+    Stack measurements completed!
+
+
+    *** ALL GOOD ***
 

@@ -23,6 +23,9 @@
  * Arguments:   - const uint8_t *x: pointer to input byte array
  *
  * Returns the loaded 64-bit unsigned integer
+ * 
+ * Update: Now uses Keccak_Il() function to support bit 
+ * interleaving for Cortex-M4 32-bit register optimization
  **************************************************/
 static uint64_t load64(const uint8_t *x) {
     uint64_t r = 0;
@@ -30,7 +33,7 @@ static uint64_t load64(const uint8_t *x) {
         r |= (uint64_t)x[i] << 8 * i;
     }
 
-    return r;
+    return Keccak_Il((uint32_t)r, (uint32_t)(r >> 32));
 }
 
 /*************************************************
@@ -40,8 +43,12 @@ static uint64_t load64(const uint8_t *x) {
  *
  * Arguments:   - uint8_t *x: pointer to the output byte array
  *              - uint64_t u: input 64-bit unsigned integer
+ * 
+ * Update: Now uses Keccak_Deil() function to support bit 
+ * interleaving for Cortex-M4 32-bit register optimization
  **************************************************/
 static void store64(uint8_t *x, uint64_t u) {
+    u = Keccak_Deil((uint32_t)u, (uint32_t)(u >> 32));
     for (size_t i = 0; i < 8; ++i) {
         x[i] = (uint8_t) (u >> 8 * i);
     }
